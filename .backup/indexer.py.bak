@@ -1,0 +1,110 @@
+"""Phase 1 — Indexation : embeddings BGE-M3 -> Qdrant.
+
+POURQUOI BGE-M3 : multilingue FR/EN (tes utilisateurs répondront en français,
+le corpus est en anglais — le cross-lingual est indispensable), open source,
+tourne sur CPU. Dimension : 1024, distance cosinus.
+
+POURQUOI stocker le texte dans le payload Qdrant : au retrieval, on récupère
+directement le chunk sans requête secondaire, et les métadonnées permettent
+les filtres (ex : service="IAM").
+
+Usage :
+    python ingestion/indexer.py            # indexe data/processed/chunks.jsonl
+    python ingestion/indexer.py --rebuild  # supprime et réindexe
+"""
+from __future__ import annotations
+import argparse
+import sys
+import uuid
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from config import settings
+from ingestion.chunking import Chunk, chunk_corpus, load_chunks, save_chunks
+
+from qdrant_client import QdrantClient
+from qdrant_client.models import (Distance, PointStruct, VectorParams,
+                                  PayloadSchemaType)
+from sentence_transformers import SentenceTransformer
+from tqdm import tqdm
+
+EMBED_DIM = 1024
+BATCH = 24
+
+
+def get_client() -> QdrantClient:
+    return QdrantClient(url=settings.qdrant_url)
+
+
+def get_embedder() -> SentenceTransformer:
+    # Premier appel : télécharge ~2,3 Go dans ~/.cache/huggingface
+    return SentenceTransformer(settings.embedding_model)
+
+
+def ensure_collection(client: QdrantClient, rebuild: bool = False) -> None:
+    name = settings.qdrant_collection
+    exists = client.collection_exists(name)
+    if exists and rebuild:
+        client.delete_collection(name)
+        exists = False
+    if not exists:
+        client.create_collection(
+            collection_name=name,
+            vectors_config=VectorParams(size=EMBED_DIM, distance=Distance.COSINE),
+        )
+        # Index de payload pour filtrer vite par service
+        client.create_payload_index(name, "service", PayloadSchemaType.KEYWORD)
+        client.create_payload_index(name, "category", PayloadSchemaType.KEYWORD)
+
+
+def index_chunks(chunks: list[Chunk], rebuild: bool = False) -> None:
+    client = get_client()
+    embedder = get_embedder()
+    ensure_collection(client, rebuild=rebuild)
+
+    for i in tqdm(range(0, len(chunks), BATCH), desc="Indexation"):
+        batch = chunks[i:i + BATCH]
+        # Pas de prefixe "query:" pour les documents avec BGE-M3
+        vectors = embedder.encode([c.text for c in batch],
+                                  normalize_embeddings=True,
+                                  show_progress_bar=False)
+        points = [
+            PointStruct(
+                # Qdrant exige un UUID ou un int ; on dérive un UUID stable du chunk_id
+                id=str(uuid.uuid5(uuid.NAMESPACE_OID, c.chunk_id)),
+                vector=v.tolist(),
+                payload={
+                    "chunk_id": c.chunk_id,
+                    "text": c.text,
+                    "source_file": c.source_file,
+                    "service": c.service,
+                    "category": c.category,
+                    "title": c.title,
+                    "section": c.section,
+                    "doc_type": c.doc_type,
+                },
+            )
+            for c, v in zip(batch, vectors)
+        ]
+        client.upsert(collection_name=settings.qdrant_collection, points=points)
+
+    info = client.get_collection(settings.qdrant_collection)
+    print(f"Collection '{settings.qdrant_collection}' : {info.points_count} points")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--rebuild", action="store_true")
+    args = parser.parse_args()
+
+    chunks_path = Path("data/processed/chunks.jsonl")
+    if chunks_path.exists() and not args.rebuild:
+        chunks = load_chunks()
+        print(f"Chunks chargés depuis {chunks_path} : {len(chunks)}")
+    else:
+        print("Chunking du corpus...")
+        chunks = chunk_corpus()
+        save_chunks(chunks)
+        print(f"Chunks produits : {len(chunks)}")
+
+    index_chunks(chunks, rebuild=args.rebuild)
