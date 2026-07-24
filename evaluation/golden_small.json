@@ -1,0 +1,45 @@
+{
+  "description": "Golden dataset \u2014 Q/R de r\u00e9f\u00e9rence annot\u00e9es manuellement. Chaque ground_truth est v\u00e9rifi\u00e9e dans le corpus AWS (PDF officiels). R\u00e9partir sur les services et niveaux. Compl\u00e9ter jusqu'\u00e0 50 items pour la version finale.",
+  "items": [
+    {
+      "id": "gd-001",
+      "service": "VPC",
+      "level": "intermediate",
+      "question": "What is the difference between a security group and a network ACL in AWS?",
+      "ground_truth": "Security groups act at the instance level and are stateful: return traffic is automatically allowed regardless of rules. Network ACLs act at the subnet level and are stateless: return traffic must be explicitly allowed by rules. Security groups support allow rules only, while network ACLs support both allow and deny rules, evaluated in number order.",
+      "source_hint": "vpc-ug"
+    },
+    {
+      "id": "gd-002",
+      "service": "S3",
+      "level": "beginner",
+      "question": "What durability does Amazon S3 Standard storage class provide?",
+      "ground_truth": "Amazon S3 Standard is designed for 99.999999999% (11 nines) of durability of objects over a given year, by redundantly storing data across multiple devices in a minimum of three Availability Zones.",
+      "source_hint": "s3-userguide"
+    },
+    {
+      "id": "gd-003",
+      "service": "IAM",
+      "level": "advanced",
+      "question": "How does IAM policy evaluation handle an explicit deny?",
+      "ground_truth": "An explicit deny in any applicable policy overrides any allows. The evaluation logic starts by assuming all requests are implicitly denied, then evaluates all applicable policies; if any policy contains an explicit Deny statement that matches the request, the final decision is deny, regardless of Allow statements elsewhere.",
+      "source_hint": "iam-ug"
+    },
+    {
+      "id": "gd-004",
+      "service": "EC2",
+      "level": "intermediate",
+      "question": "What happens to data on an instance store volume when the EC2 instance is stopped?",
+      "ground_truth": "Data on instance store volumes is lost when the instance is stopped, hibernated, or terminated, because instance store is ephemeral storage physically attached to the host. Data persists only through an instance reboot.",
+      "source_hint": "ec2-ug"
+    },
+    {
+      "id": "gd-005",
+      "service": "Lambda",
+      "level": "beginner",
+      "question": "What is the maximum execution timeout for an AWS Lambda function?",
+      "ground_truth": "The maximum timeout for a Lambda function is 900 seconds (15 minutes). If the function runs longer, Lambda terminates it.",
+      "source_hint": "lambda-dg"
+    }
+  ]
+}

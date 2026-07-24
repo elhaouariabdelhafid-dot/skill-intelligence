@@ -34,23 +34,6 @@ MAX_RETRIES = 3
 # --------------------------------------------------------------------------
 # Appel brut
 # --------------------------------------------------------------------------
-
-def _gemini_text(content) -> str:
-    """Gemini 3.x renvoie parfois une liste de blocs [{'type':'text','text':...}]
-    au lieu d'une chaîne. On extrait le texte quel que soit le format."""
-    if isinstance(content, str):
-        return content
-    if isinstance(content, list):
-        parts = []
-        for block in content:
-            if isinstance(block, dict) and block.get("type") == "text":
-                parts.append(block.get("text", ""))
-            elif isinstance(block, str):
-                parts.append(block)
-        return "".join(parts)
-    return str(content)
-
-
 def complete(prompt: str, system: str | None = None,
              temperature: float = 0.2, max_tokens: int = 1500) -> str:
     """Appel texte simple, quel que soit le provider configuré."""
@@ -86,23 +69,6 @@ def complete(prompt: str, system: str | None = None,
             model="gpt-4o-mini", messages=messages,
             temperature=temperature, max_tokens=max_tokens)
         return resp.choices[0].message.content
-
-    if provider == "gemini":
-        from langchain_google_genai import ChatGoogleGenerativeAI
-        model = getattr(settings, "gemini_model", "gemini-flash-latest")
-        llm = ChatGoogleGenerativeAI(model=model, temperature=temperature,
-                                     max_retries=3,
-                                     google_api_key=settings.google_api_key)
-        messages = ([("system", system)] if system else []) + [("human", prompt)]
-        return _gemini_text(llm.invoke(messages).content)
-
-    if provider == "groq":
-        from langchain_groq import ChatGroq
-        model = getattr(settings, "groq_model", "llama-3.3-70b-versatile")
-        llm = ChatGroq(model=model, temperature=temperature,
-                       api_key=settings.groq_api_key, max_retries=3)
-        messages = ([("system", system)] if system else []) + [("human", prompt)]
-        return _gemini_text(llm.invoke(messages).content)
 
     raise ValueError(f"Provider inconnu : {settings.llm_provider}")
 
