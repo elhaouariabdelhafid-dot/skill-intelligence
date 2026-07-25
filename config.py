@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     google_api_key: str = ""
     groq_api_key: str = ""
     groq_model: str = "llama-3.3-70b-versatile"
+    cerebras_api_key: str = ""
+    cerebras_model: str = "llama-3.3-70b"
     anthropic_api_key: str = ""
     openai_api_key: str = ""
 

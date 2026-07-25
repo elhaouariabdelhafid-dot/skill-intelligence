@@ -1,2 +1,74 @@
 nohup: ignoring input
-nohup: failed to run command 'python': No such file or directory
+Golden dataset : 10 questions
+
+=== Système : naive — génération des réponses ===
+  [1/10] What is the difference between a security group and a n...
+  [2/10] What durability does Amazon S3 Standard storage class p...
+  [3/10] How does IAM policy evaluation handle an explicit deny?...
+  [4/10] What happens to data on an instance store volume when t...
+  [5/10] What is the maximum execution timeout for an AWS Lambda...
+  [6/10] What baseline storage performance does Amazon RDS provi...
+  [7/10] What does a VPC security group control and at what leve...
+  [8/10] In AWS Lambda, what is the difference between reserved ...
+  [9/10] What is the difference between SSE-S3 and SSE-KMS serve...
+  [10/10] On a gp3 EBS volume, what baseline IOPS and throughput ...
+=== Système : naive — évaluation RAGAS (Gemini juge) ===
+Evaluating:   0%|          | 0/40 [00:00<?, ?it/s]Evaluating:   2%|▎         | 1/40 [00:10<06:57, 10.70s/it]Evaluating:   5%|▌         | 2/40 [01:15<26:54, 42.48s/it]Exception raised in Job[2]: LLMDidNotFinishException(The LLM generation was not completed. Please increase try increasing the max_tokens and try again.)
+Evaluating:   8%|▊         | 3/40 [02:12<30:10, 48.93s/it]Evaluating:  10%|█         | 4/40 [02:50<26:57, 44.93s/it]Evaluating:  12%|█▎        | 5/40 [03:28<24:39, 42.28s/it]Evaluating:  15%|█▌        | 6/40 [04:47<30:58, 54.65s/it]Exception raised in Job[6]: AttributeError('StringIO' object has no attribute 'sentences')
+Evaluating:  18%|█▊        | 7/40 [06:39<40:30, 73.65s/it]Exception raised in Job[7]: TimeoutError()
+Evaluating:  20%|██        | 8/40 [09:46<58:30, 109.70s/it]Evaluating:  22%|██▎       | 9/40 [09:52<39:52, 77.18s/it] Evaluating:  25%|██▌       | 10/40 [10:59<36:57, 73.91s/it]Exception raised in Job[10]: LLMDidNotFinishException(The LLM generation was not completed. Please increase try increasing the max_tokens and try again.)
+Evaluating:  28%|██▊       | 11/40 [11:54<32:58, 68.24s/it]Evaluating:  30%|███       | 12/40 [12:31<27:25, 58.78s/it]Evaluating:  32%|███▎      | 13/40 [12:47<20:34, 45.71s/it]Evaluating:  35%|███▌      | 14/40 [13:48<21:48, 50.33s/it]Exception raised in Job[14]: AttributeError('StringIO' object has no attribute 'sentences')
+Evaluating:  38%|███▊      | 15/40 [15:14<25:30, 61.22s/it]Evaluating:  40%|████      | 16/40 [15:55<22:00, 55.02s/it]Evaluating:  42%|████▎     | 17/40 [16:17<17:17, 45.12s/it]Evaluating:  45%|████▌     | 18/40 [17:23<18:54, 51.57s/it]Evaluating:  48%|████▊     | 19/40 [18:05<16:59, 48.54s/it]Evaluating:  50%|█████     | 20/40 [18:25<13:19, 39.97s/it]Evaluating:  52%|█████▎    | 21/40 [19:01<12:16, 38.79s/it]Evaluating:  55%|█████▌    | 22/40 [20:19<15:10, 50.59s/it]Exception raised in Job[22]: LLMDidNotFinishException(The LLM generation was not completed. Please increase try increasing the max_tokens and try again.)
+Evaluating:  57%|█████▊    | 23/40 [21:38<16:47, 59.24s/it]Evaluating:  60%|██████    | 24/40 [22:25<14:48, 55.54s/it]Evaluating:  62%|██████▎   | 25/40 [22:48<11:26, 45.79s/it]Evaluating:  65%|██████▌   | 26/40 [23:49<11:44, 50.33s/it]Exception raised in Job[26]: TimeoutError()
+Evaluating:  68%|██████▊   | 27/40 [26:57<19:50, 91.54s/it]Evaluating:  70%|███████   | 28/40 [27:01<13:04, 65.40s/it]Evaluating:  72%|███████▎  | 29/40 [27:02<08:25, 45.93s/it]Evaluating:  75%|███████▌  | 30/40 [28:10<08:45, 52.50s/it]Exception raised in Job[30]: LLMDidNotFinishException(The LLM generation was not completed. Please increase try increasing the max_tokens and try again.)
+Evaluating:  78%|███████▊  | 31/40 [29:12<08:18, 55.34s/it]Exception raised in Job[31]: AttributeError('StringIO' object has no attribute 'question')
+Evaluating:  80%|████████  | 32/40 [31:35<10:54, 81.83s/it]Evaluating:  82%|████████▎ | 33/40 [32:06<07:44, 66.33s/it]Evaluating:  85%|████████▌ | 34/40 [33:21<06:54, 69.12s/it]Evaluating:  88%|████████▊ | 35/40 [34:08<05:12, 62.53s/it]Evaluating:  90%|█████████ | 36/40 [34:46<03:40, 55.03s/it]Evaluating:  92%|█████████▎| 37/40 [35:08<02:15, 45.15s/it]Evaluating:  95%|█████████▌| 38/40 [36:17<01:44, 52.46s/it]Evaluating:  98%|█████████▊| 39/40 [37:19<00:55, 55.19s/it]Exception raised in Job[39]: TimeoutError()
+Evaluating: 100%|██████████| 40/40 [40:27<00:00, 95.02s/it]Evaluating: 100%|██████████| 40/40 [40:27<00:00, 60.69s/it]
+{
+  "context_recall": 0.7,
+  "context_precision": 0.995,
+  "faithfulness": 0.7619,
+  "answer_relevancy": 0.949
+} 
+
+=== Système : v2 — génération des réponses ===
+  [1/10] What is the difference between a security group and a n...
+  [2/10] What durability does Amazon S3 Standard storage class p...
+  [3/10] How does IAM policy evaluation handle an explicit deny?...
+  [4/10] What happens to data on an instance store volume when t...
+  [5/10] What is the maximum execution timeout for an AWS Lambda...
+  [6/10] What baseline storage performance does Amazon RDS provi...
+  [7/10] What does a VPC security group control and at what leve...
+  [8/10] In AWS Lambda, what is the difference between reserved ...
+  [9/10] What is the difference between SSE-S3 and SSE-KMS serve...
+  [10/10] On a gp3 EBS volume, what baseline IOPS and throughput ...
+=== Système : v2 — évaluation RAGAS (Gemini juge) ===
+Evaluating:   0%|          | 0/40 [00:00<?, ?it/s]Evaluating:   2%|▎         | 1/40 [00:10<06:32, 10.06s/it]Evaluating:   5%|▌         | 2/40 [01:18<28:00, 44.22s/it]Evaluating:   8%|▊         | 3/40 [02:07<28:42, 46.55s/it]Evaluating:  10%|█         | 4/40 [02:33<23:04, 38.47s/it]Exception raised in Job[4]: LLMDidNotFinishException(The LLM generation was not completed. Please increase try increasing the max_tokens and try again.)
+Evaluating:  12%|█▎        | 5/40 [03:02<20:27, 35.07s/it]Evaluating:  15%|█▌        | 6/40 [04:33<30:32, 53.90s/it]Exception raised in Job[6]: LLMDidNotFinishException(The LLM generation was not completed. Please increase try increasing the max_tokens and try again.)
+Evaluating:  18%|█▊        | 7/40 [06:06<36:41, 66.72s/it]Evaluating:  20%|██        | 8/40 [06:51<31:56, 59.91s/it]Evaluating:  22%|██▎       | 9/40 [07:20<25:54, 50.16s/it]Evaluating:  25%|██▌       | 10/40 [08:25<27:26, 54.88s/it]Evaluating:  28%|██▊       | 11/40 [09:16<25:54, 53.59s/it]Evaluating:  30%|███       | 12/40 [09:44<21:21, 45.75s/it]Evaluating:  32%|███▎      | 13/40 [10:13<18:18, 40.69s/it]Evaluating:  35%|███▌      | 14/40 [11:23<21:29, 49.59s/it]Evaluating:  38%|███▊      | 15/40 [12:05<19:46, 47.47s/it]Evaluating:  40%|████      | 16/40 [12:41<17:34, 43.95s/it]Evaluating:  42%|████▎     | 17/40 [13:02<14:11, 37.01s/it]Evaluating:  45%|████▌     | 18/40 [14:14<17:25, 47.50s/it]Evaluating:  48%|████▊     | 19/40 [14:57<16:10, 46.22s/it]Exception raised in Job[19]: LLMDidNotFinishException(The LLM generation was not completed. Please increase try increasing the max_tokens and try again.)
+Evaluating:  50%|█████     | 20/40 [15:41<15:06, 45.34s/it]Evaluating:  52%|█████▎    | 21/40 [16:34<15:08, 47.79s/it]Evaluating:  55%|█████▌    | 22/40 [17:47<16:35, 55.31s/it]Exception raised in Job[22]: LLMDidNotFinishException(The LLM generation was not completed. Please increase try increasing the max_tokens and try again.)
+Evaluating:  57%|█████▊    | 23/40 [19:26<19:21, 68.33s/it]Exception raised in Job[23]: AttributeError('StringIO' object has no attribute 'question')
+Evaluating:  60%|██████    | 24/40 [22:02<25:14, 94.64s/it]Evaluating:  62%|██████▎   | 25/40 [22:22<18:06, 72.45s/it]Evaluating:  65%|██████▌   | 26/40 [23:31<16:40, 71.47s/it]Exception raised in Job[26]: LLMDidNotFinishException(The LLM generation was not completed. Please increase try increasing the max_tokens and try again.)
+Evaluating:  68%|██████▊   | 27/40 [24:53<16:08, 74.48s/it]Evaluating:  70%|███████   | 28/40 [25:27<12:28, 62.34s/it]Evaluating:  72%|███████▎  | 29/40 [25:56<09:36, 52.43s/it]Evaluating:  75%|███████▌  | 30/40 [27:19<10:14, 61.46s/it]Exception raised in Job[30]: LLMDidNotFinishException(The LLM generation was not completed. Please increase try increasing the max_tokens and try again.)
+Evaluating:  78%|███████▊  | 31/40 [28:03<08:26, 56.32s/it]Exception raised in Job[31]: TimeoutError()
+Evaluating:  80%|████████  | 32/40 [31:11<12:47, 95.90s/it]Evaluating:  82%|████████▎ | 33/40 [31:43<08:56, 76.61s/it]Evaluating:  85%|████████▌ | 34/40 [32:54<07:29, 75.00s/it]Exception raised in Job[34]: LLMDidNotFinishException(The LLM generation was not completed. Please increase try increasing the max_tokens and try again.)
+Evaluating:  88%|████████▊ | 35/40 [33:49<05:43, 68.78s/it]Exception raised in Job[35]: LLMDidNotFinishException(The LLM generation was not completed. Please increase try increasing the max_tokens and try again.)
+Evaluating:  90%|█████████ | 36/40 [35:36<05:21, 80.44s/it]Evaluating:  92%|█████████▎| 37/40 [37:12<04:15, 85.14s/it]Evaluating:  95%|█████████▌| 38/40 [38:36<02:49, 84.70s/it]Exception raised in Job[38]: LLMDidNotFinishException(The LLM generation was not completed. Please increase try increasing the max_tokens and try again.)
+Evaluating:  98%|█████████▊| 39/40 [39:51<01:21, 81.84s/it]Exception raised in Job[39]: RateLimitError(Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.1-8b-instant` in organization `org_01kyb2m3srepnrwjrb25hqxhwq` service tier `on_demand` on tokens per day (TPD): Limit 500000, Used 497795, Requested 3442. Please try again in 3m33.7536s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}})
+Evaluating: 100%|██████████| 40/40 [42:45<00:00, 109.48s/it]Evaluating: 100%|██████████| 40/40 [42:45<00:00, 64.14s/it] 
+{
+  "context_recall": 0.7778,
+  "context_precision": 0.9804,
+  "faithfulness": 0.6169,
+  "answer_relevancy": 0.9206
+} 
+
+=== TABLEAU COMPARATIF ===
+Métrique                   naive        v2
+------------------------------------------
+context_recall               0.7    0.7778
+context_precision          0.995    0.9804
+faithfulness              0.7619    0.6169
+answer_relevancy           0.949    0.9206
+
+Seuils visés : context_recall > 0.80, faithfulness > 0.85

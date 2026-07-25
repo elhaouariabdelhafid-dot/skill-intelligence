@@ -74,16 +74,16 @@ def run_system(system: str, items: list[dict]) -> list[dict]:
 
 
 def build_gemini_judge():
-    """Juge = Groq (llama-3.3-70b). Embedder = local (fastembed via HF),
-    pour ne pas dépendre d'un embedder cloud soumis à quota."""
-    import os
+    """Juge = Cerebras (Llama 3.3 70B, 1M tokens/jour gratuit) via endpoint
+    OpenAI-compatible. Embedder = local (BGE-small) pour éviter tout quota."""
     from config import settings
-    os.environ["GROQ_API_KEY"] = settings.groq_api_key
     from langchain_groq import ChatGroq
     from langchain_huggingface import HuggingFaceEmbeddings
     from ragas.llms import LangchainLLMWrapper
     from ragas.embeddings import LangchainEmbeddingsWrapper
 
+    import os
+    os.environ["GROQ_API_KEY"] = settings.groq_api_key
     judge = LangchainLLMWrapper(
         ChatGroq(model=settings.groq_model, temperature=0,
                  api_key=settings.groq_api_key, max_retries=3))

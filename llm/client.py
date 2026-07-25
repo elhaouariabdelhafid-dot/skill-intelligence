@@ -97,12 +97,26 @@ def complete(prompt: str, system: str | None = None,
         return _gemini_text(llm.invoke(messages).content)
 
     if provider == "groq":
+        import os
+        os.environ["GROQ_API_KEY"] = settings.groq_api_key
         from langchain_groq import ChatGroq
         model = getattr(settings, "groq_model", "llama-3.3-70b-versatile")
         llm = ChatGroq(model=model, temperature=temperature,
                        api_key=settings.groq_api_key, max_retries=3)
         messages = ([("system", system)] if system else []) + [("human", prompt)]
         return _gemini_text(llm.invoke(messages).content)
+
+    if provider == "cerebras":
+        from openai import OpenAI
+        client = OpenAI(api_key=settings.cerebras_api_key,
+                        base_url="https://api.cerebras.ai/v1")
+        model = getattr(settings, "cerebras_model", "llama-3.3-70b")
+        messages = ([{"role": "system", "content": system}] if system else []) \
+                   + [{"role": "user", "content": prompt}]
+        resp = client.chat.completions.create(
+            model=model, messages=messages,
+            temperature=temperature, max_tokens=max_tokens)
+        return resp.choices[0].message.content
 
     raise ValueError(f"Provider inconnu : {settings.llm_provider}")
 

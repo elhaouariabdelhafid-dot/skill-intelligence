@@ -125,27 +125,34 @@ def filter_duplicates(questions: list[StoredQuestion]
 # F3 — Ancrage dans le corpus
 # ==========================================================================
 def filter_grounding(q: StoredQuestion) -> tuple[str | None, float]:
-    """Vérifie que le chunk source est bien retrouvé quand on cherche la question.
+    """Vérifie que la question est ancrée dans le corpus, sur le bon domaine.
 
-    POURQUOI : si la question ne permet pas de retrouver son propre chunk
-    d'origine, elle est soit trop vague, soit hors corpus — donc inévaluable
-    par les agents en Phase 4, qui s'appuient sur le retrieval.
+    POURQUOI assoupli : les questions 'apply' sont des scénarios reformulés qui
+    ne ressemblent pas textuellement au chunk source. On ne peut donc pas exiger
+    que le chunk EXACT remonte. On vérifie plutôt un ancrage THÉMATIQUE :
+      (a) le chunk source est dans le top-15 (large), OU
+      (b) au moins un chunk du même service remonte en tête.
+    Cela garde les bonnes questions de raisonnement tout en rejetant celles qui
+    partent complètement hors corpus.
     """
     from retrieval.reranker import retrieve_final
 
-    hits = retrieve_final(q.question, top_k=5)
+    hits = retrieve_final(q.question, top_k=15)
     if not hits:
         return "no_retrieval", 0.0
 
     source_ids = set(q.source_chunk_ids)
+    # (a) chunk source exact dans le top-15
     for hit in hits:
         if hit.chunk_id in source_ids:
-            score = float(hit.score)
-            if score < GROUNDING_THRESHOLD:
-                return "weak_grounding", score
-            return None, score
+            return None, float(hit.score)
 
-    # Le chunk source n'est pas dans le top-5 : la question a dérivé
+    # (b) ancrage thématique : un chunk du même service en tête (top-5)
+    top_services = [h.service for h in hits[:5]]
+    if q.service in top_services:
+        return None, float(hits[0].score)
+
+    # Sinon la question a vraiment dérivé hors de son domaine
     return "source_not_retrieved", float(hits[0].score)
 
 
