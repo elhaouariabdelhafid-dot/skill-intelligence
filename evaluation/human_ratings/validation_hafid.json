@@ -1,0 +1,9 @@
+{
+  "annotator": "hafid",
+  "n": 21,
+  "spearman": 0.085,
+  "pearson": -0.039,
+  "mae": 0.96,
+  "exact_agreement": 0.333,
+  "within_1": 0.762
+}
