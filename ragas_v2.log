@@ -1,0 +1,28 @@
+nohup: ignoring input
+Golden dataset : 10 questions
+
+=== Système : v2 — génération des réponses ===
+  [1/10] What is the difference between a security group and a n...
+    [429] attente 20s...
+    [429] attente 40s...
+    [429] attente 60s...
+    [429] attente 80s...
+    [429] attente 100s...
+Traceback (most recent call last):
+  File "/home/hafid/skill-intelligence/evaluation/ragas_eval.py", line 164, in <module>
+    main()
+  File "/home/hafid/skill-intelligence/evaluation/ragas_eval.py", line 137, in main
+    rows = run_system(sysname, items)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/hafid/skill-intelligence/evaluation/ragas_eval.py", line 65, in run_system
+    answer, chunks = pipeline(item["question"])
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/hafid/skill-intelligence/evaluation/ragas_eval.py", line 58, in pipeline
+    return generate(build_prompt(q, chunks)), chunks
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/hafid/skill-intelligence/retrieval/query_naive.py", line 91, in generate
+    return complete(prompt, temperature=0.1, max_tokens=700)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/hafid/skill-intelligence/llm/client.py", line 129, in complete
+    raise RuntimeError("Groq : trop de 429 successifs")
+RuntimeError: Groq : trop de 429 successifs
