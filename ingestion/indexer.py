@@ -28,7 +28,7 @@ from qdrant_client.models import (Distance, PayloadSchemaType, PointStruct,
                                   VectorParams)
 from tqdm import tqdm
 
-BATCH = 128   # FastEmbed est rapide : batch large sans risque mémoire
+BATCH = 128   # MiniLM leger, batch large OK
 
 
 def get_client() -> QdrantClient:

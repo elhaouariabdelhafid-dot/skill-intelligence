@@ -32,6 +32,8 @@ MODEL_DIMS = {
     "BAAI/bge-small-en-v1.5": 384,
     "BAAI/bge-base-en-v1.5": 768,
     "BAAI/bge-m3": 1024,
+    "intfloat/multilingual-e5-large": 1024,
+    "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2": 384,
     "sentence-transformers/all-MiniLM-L6-v2": 384,
 }
 
@@ -45,12 +47,20 @@ class FastEmbedder:
         self.dim = MODEL_DIMS.get(model_name, 384)
         self.model = TextEmbedding(model_name=model_name)
 
+    def _is_e5(self) -> bool:
+        return "e5" in self.model_name.lower()
+
     def encode_documents(self, texts: list[str]) -> list[list[float]]:
+        # e5 exige le préfixe 'passage: ' sur les documents
+        if self._is_e5():
+            texts = [f"passage: {t}" for t in texts]
         return [v.tolist() for v in self.model.embed(texts)]
 
     def encode_query(self, text: str) -> list[float]:
-        # BGE recommande un préfixe d'instruction côté requête uniquement.
-        # FastEmbed l'applique via query_embed.
+        # e5 exige le préfixe 'query: ' sur les requêtes
+        if self._is_e5():
+            return list(self.model.embed([f"query: {text}"]))[0].tolist()
+        # BGE : préfixe d'instruction via query_embed
         return list(self.model.query_embed([text]))[0].tolist()
 
 
