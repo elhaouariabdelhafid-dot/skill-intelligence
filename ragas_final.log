@@ -1,4 +1,6 @@
 nohup: ignoring input
+/home/hafid/skill-intelligence/ingestion/embeddings.py:48: UserWarning: The model sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2 now uses mean pooling instead of CLS embedding. In order to preserve the previous behaviour, consider either pinning fastembed version to 0.5.1 or using `add_custom_model` functionality.
+  self.model = TextEmbedding(model_name=model_name)
 Golden dataset : 10 questions
 
 === Système : naive — génération des réponses ===
@@ -8,47 +10,6 @@ Golden dataset : 10 questions
   [4/10] What happens to data on an instance store volume when t...
   [5/10] What is the maximum execution timeout for an AWS Lambda...
   [6/10] What baseline storage performance does Amazon RDS provi...
-  [7/10] What does a VPC security group control and at what leve...
-  [8/10] In AWS Lambda, what is the difference between reserved ...
-  [9/10] What is the difference between SSE-S3 and SSE-KMS serve...
-  [10/10] On a gp3 EBS volume, what baseline IOPS and throughput ...
-=== Système : naive — évaluation RAGAS (Gemini juge) ===
-Evaluating:   0%|          | 0/40 [00:00<?, ?it/s]Evaluating:   2%|▎         | 1/40 [00:00<00:32,  1.19it/s]Evaluating:   5%|▌         | 2/40 [00:17<06:16,  9.91s/it]Evaluating:   8%|▊         | 3/40 [00:38<09:27, 15.33s/it]Evaluating:  10%|█         | 4/40 [00:54<09:18, 15.51s/it]Evaluating:  12%|█▎        | 5/40 [01:09<08:53, 15.24s/it]Evaluating:  15%|█▌        | 6/40 [01:53<14:09, 24.97s/it]Evaluating:  18%|█▊        | 7/40 [02:10<12:24, 22.55s/it]Evaluating:  20%|██        | 8/40 [02:18<09:29, 17.80s/it]Evaluating:  22%|██▎       | 9/40 [02:34<08:57, 17.32s/it]Evaluating:  25%|██▌       | 10/40 [03:06<10:55, 21.86s/it]Evaluating:  28%|██▊       | 11/40 [03:29<10:43, 22.17s/it]Evaluating:  30%|███       | 12/40 [03:40<08:40, 18.58s/it]Evaluating:  32%|███▎      | 13/40 [03:54<07:52, 17.49s/it]Evaluating:  35%|███▌      | 14/40 [04:30<09:53, 22.84s/it]Evaluating:  38%|███▊      | 15/40 [04:50<09:09, 22.00s/it]Evaluating:  40%|████      | 16/40 [05:33<11:22, 28.46s/it]Evaluating:  42%|████▎     | 17/40 [05:34<07:42, 20.12s/it]Evaluating:  45%|████▌     | 18/40 [05:51<07:03, 19.26s/it]Evaluating:  48%|████▊     | 19/40 [08:55<24:03, 68.76s/it]Exception raised in Job[19]: RateLimitError(Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kyb2m3srepnrwjrb25hqxhwq` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99914, Requested 857. Please try again in 11m6.144s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}})
-Evaluating:  50%|█████     | 20/40 [10:10<23:30, 70.51s/it]Exception raised in Job[20]: RateLimitError(Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kyb2m3srepnrwjrb25hqxhwq` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99744, Requested 3217. Please try again in 42m38.304s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}})
-Evaluating:  52%|█████▎    | 21/40 [12:36<29:32, 93.30s/it]Exception raised in Job[21]: RateLimitError(Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kyb2m3srepnrwjrb25hqxhwq` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99600, Requested 1508. Please try again in 15m57.312s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}})
-Evaluating:  55%|█████▌    | 22/40 [14:41<30:50, 102.82s/it]Exception raised in Job[22]: RateLimitError(Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kyb2m3srepnrwjrb25hqxhwq` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99437, Requested 793. Please try again in 3m18.72s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}})
-Evaluating:  57%|█████▊    | 23/40 [17:01<32:18, 114.03s/it]Exception raised in Job[23]: RateLimitError(Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kyb2m3srepnrwjrb25hqxhwq` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99827, Requested 424. Please try again in 3m36.864s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}})
-Evaluating:  60%|██████    | 24/40 [19:32<33:20, 125.00s/it]Exception raised in Job[24]: RateLimitError(Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kyb2m3srepnrwjrb25hqxhwq` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99674, Requested 1966. Please try again in 23m36.96s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}})
-Evaluating:  62%|██████▎   | 25/40 [21:45<31:51, 127.45s/it]Exception raised in Job[25]: RateLimitError(Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kyb2m3srepnrwjrb25hqxhwq` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99527, Requested 1299. Please try again in 11m53.664s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}})
-Evaluating:  65%|██████▌   | 26/40 [23:53<29:43, 127.40s/it]Exception raised in Job[26]: RateLimitError(Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kyb2m3srepnrwjrb25hqxhwq` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99368, Requested 981. Please try again in 5m1.536s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}})
-Evaluating:  68%|██████▊   | 27/40 [26:09<28:12, 130.22s/it]Exception raised in Job[27]: RateLimitError(Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kyb2m3srepnrwjrb25hqxhwq` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99893, Requested 758. Please try again in 9m22.464s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}})
-Evaluating:  70%|███████   | 28/40 [27:44<23:53, 119.48s/it]Exception raised in Job[28]: RateLimitError(Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kyb2m3srepnrwjrb25hqxhwq` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99700, Requested 2939. Please try again in 38m0.096s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}})
-Evaluating:  72%|███████▎  | 29/40 [30:31<24:30, 133.69s/it]Exception raised in Job[29]: RateLimitError(Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kyb2m3srepnrwjrb25hqxhwq` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99552, Requested 1349. Please try again in 12m58.464s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}})
-Evaluating:  75%|███████▌  | 30/40 [32:39<22:00, 132.00s/it]Exception raised in Job[30]: RateLimitError(Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kyb2m3srepnrwjrb25hqxhwq` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99397, Requested 1504. Please try again in 12m58.464s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}})
-Evaluating:  78%|███████▊  | 31/40 [34:52<19:50, 132.31s/it]Exception raised in Job[31]: RateLimitError(Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kyb2m3srepnrwjrb25hqxhwq` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99949, Requested 837. Please try again in 11m19.104s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}})
-Evaluating:  80%|████████  | 32/40 [37:38<18:59, 142.45s/it]Exception raised in Job[32]: RateLimitError(Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kyb2m3srepnrwjrb25hqxhwq` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99789, Requested 2562. Please try again in 33m51.264s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}})
-Evaluating:  82%|████████▎ | 33/40 [39:55<16:26, 140.92s/it]Exception raised in Job[33]: RateLimitError(Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kyb2m3srepnrwjrb25hqxhwq` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99627, Requested 1036. Please try again in 9m32.832s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}})
-Evaluating:  85%|████████▌ | 34/40 [42:16<14:05, 140.92s/it]Exception raised in Job[34]: RateLimitError(Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kyb2m3srepnrwjrb25hqxhwq` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99529, Requested 1392. Please try again in 13m15.743999999s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}})
-Evaluating:  88%|████████▊ | 35/40 [43:40<10:19, 123.87s/it]Exception raised in Job[35]: RateLimitError(Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kyb2m3srepnrwjrb25hqxhwq` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99405, Requested 699. Please try again in 1m29.856s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}})
-Evaluating:  90%|█████████ | 36/40 [45:27<07:55, 118.84s/it]Exception raised in Job[36]: RateLimitError(Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kyb2m3srepnrwjrb25hqxhwq` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99882, Requested 2896. Please try again in 40m0.192s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}})
-Evaluating:  92%|█████████▎| 37/40 [50:18<08:31, 170.36s/it]Exception raised in Job[37]: RateLimitError(Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kyb2m3srepnrwjrb25hqxhwq` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99736, Requested 1368. Please try again in 15m53.856s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}})
-Evaluating:  95%|█████████▌| 38/40 [52:23<05:13, 156.95s/it]Exception raised in Job[38]: RateLimitError(Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kyb2m3srepnrwjrb25hqxhwq` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99617, Requested 833. Please try again in 6m28.799999999s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}})
-Evaluating:  98%|█████████▊| 39/40 [54:06<02:20, 140.60s/it]Exception raised in Job[39]: RateLimitError(Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kyb2m3srepnrwjrb25hqxhwq` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99891, Requested 436. Please try again in 4m42.528s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}})
-Evaluating: 100%|██████████| 40/40 [56:29<00:00, 141.25s/it]Evaluating: 100%|██████████| 40/40 [56:29<00:00, 84.73s/it] 
-{
-  "context_recall": 0.9,
-  "context_precision": 0.9258,
-  "faithfulness": 0.8855,
-  "answer_relevancy": 0.9871
-} 
-
-=== Système : v2 — génération des réponses ===
-  [1/10] What is the difference between a security group and a n...
-    [429] attente 20s...
-    [429] attente 40s...
-    [429] attente 60s...
-    [429] attente 80s...
-    [429] attente 100s...
 Traceback (most recent call last):
   File "/home/hafid/skill-intelligence/evaluation/ragas_eval.py", line 164, in <module>
     main()
@@ -58,12 +19,21 @@ Traceback (most recent call last):
   File "/home/hafid/skill-intelligence/evaluation/ragas_eval.py", line 65, in run_system
     answer, chunks = pipeline(item["question"])
                      ^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/hafid/skill-intelligence/evaluation/ragas_eval.py", line 58, in pipeline
+  File "/home/hafid/skill-intelligence/evaluation/ragas_eval.py", line 53, in pipeline
     return generate(build_prompt(q, chunks)), chunks
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   File "/home/hafid/skill-intelligence/retrieval/query_naive.py", line 91, in generate
     return complete(prompt, temperature=0.1, max_tokens=700)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/hafid/skill-intelligence/llm/client.py", line 129, in complete
-    raise RuntimeError("Groq : trop de 429 successifs")
-RuntimeError: Groq : trop de 429 successifs
+  File "/home/hafid/skill-intelligence/llm/client.py", line 77, in complete
+    resp = client.generate(
+           ^^^^^^^^^^^^^^^^
+  File "/home/hafid/skill-intelligence/.venv/lib/python3.11/site-packages/ollama/_client.py", line 281, in generate
+    return self._request(
+           ^^^^^^^^^^^^^^
+  File "/home/hafid/skill-intelligence/.venv/lib/python3.11/site-packages/ollama/_client.py", line 199, in _request
+    return cls(**self._request_raw(*args, **kwargs).json())
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/hafid/skill-intelligence/.venv/lib/python3.11/site-packages/ollama/_client.py", line 143, in _request_raw
+    raise ResponseError(e.response.text, e.response.status_code) from None
+ollama._types.ResponseError: model runner has unexpectedly stopped, this may be due to resource limitations or an internal error, check ollama server logs for details (status code: 500)
