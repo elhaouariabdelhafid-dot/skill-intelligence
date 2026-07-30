@@ -1,0 +1,3 @@
+=== RAGAS FINAL (juge Llama 3.3 70B) ===
+NAIF : recall 0.900 | precision 0.926 | faithfulness 0.886 | relevancy 0.987
+V2   : recall 0.944 | precision 0.908 | faithfulness 0.872 | relevancy 0.971
