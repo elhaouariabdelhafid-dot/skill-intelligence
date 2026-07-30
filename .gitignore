@@ -6,3 +6,9 @@ data/
 volumes/
 evaluation/results/
 *.pkl
+*.log
+__pycache__/
+archive/
+*.log
+__pycache__/
+archive/
