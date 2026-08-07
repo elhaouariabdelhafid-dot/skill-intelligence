@@ -1,14 +1,59 @@
+# ============================================================
+#  skill-intelligence / EvaSmart — .gitignore
+# ============================================================
+
+# --- Python ---
 .venv/
+venv/
 __pycache__/
-*.pyc
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# --- Secrets & configuration locale ---
 .env
+.env.local
+*.pem
+*.key
+
+# --- Node / frontend ---
+node_modules/
+frontend-web/node_modules/
+frontend-web/dist/
+frontend-web/.vite/
+*.local
+
+# --- Données & volumes runtime (lourds, non versionnés) ---
 data/
 volumes/
-evaluation/results/
+!data/.gitkeep
 *.pkl
+*.jsonl
+chroma/
+qdrant/
+
+# --- Sorties d'exécution ---
+logs/
 *.log
-__pycache__/
+evaluation/results/
+evaluation/human_ratings/
+
+# --- Archives & sauvegardes ---
 archive/
-*.log
-__pycache__/
-archive/
+*.bak
+*.bak[0-9]*
+*.orig
+*~
+*.zip
+
+# --- Notebooks ---
+.ipynb_checkpoints/
+
+# --- OS / éditeurs ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+!.vscode/settings.json
