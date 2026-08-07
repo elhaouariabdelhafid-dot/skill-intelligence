@@ -73,6 +73,13 @@ def evaluate_answer(question: str, expected_answer: str, key_points: list[str],
                     rubric: list[dict], candidate_answer: str,
                     service: str = "") -> dict:
     """Point d'entrée : évalue une réponse de candidat, retourne le rapport."""
+    # Controle de couverture : une non-reponse est traitee sans appel LLM,
+    # ce qui garantit un score stable et evite un jugement arbitraire.
+    from agents.coverage import is_non_answer, zero_result
+    empty, reason = is_non_answer(candidate_answer)
+    if empty:
+        return zero_result(reason)
+
     graph = build_evaluation_graph()
     initial: EvaluationState = {
         "question": question,

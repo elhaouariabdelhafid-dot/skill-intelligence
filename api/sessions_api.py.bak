@@ -1,0 +1,485 @@
+"""Endpoints des sessions d'évaluation.
+
+FORMATEUR : créer une session, générer le sujet, l'exporter en PDF,
+            lancer les agents, consulter les scores.
+COLLABORATEUR : voir ses questions, répondre.
+
+TÂCHES LONGUES : l'évaluation par les agents prend plusieurs minutes. Elle est
+lancée en arrière-plan (BackgroundTasks) et la progression est écrite en base,
+que le frontend interroge via /status. L'interface n'est jamais bloquée.
+"""
+from __future__ import annotations
+
+import json
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi.responses import FileResponse
+from pydantic import BaseModel
+
+from auth.auth_api import get_current_user, require_role
+from auth.auth_models import AuthUser, get_auth_session
+from db.models import Evaluation, Submission, User, get_session
+from api.sessions_models import (EvalSession, SessionAnswer, SessionQuestion,
+                                 get_sessions_db)
+
+router = APIRouter(prefix="/api/sessions", tags=["sessions"])
+
+BANK = Path(__file__).parent.parent / "data" / "processed" / "questions_accepted.jsonl"
+EXPORTS = Path(__file__).parent.parent / "data" / "exports"
+
+
+def load_bank() -> dict:
+    """Banque de questions indexée par question_id."""
+    if not BANK.exists():
+        raise HTTPException(404, "questions_accepted.jsonl introuvable")
+    out = {}
+    with BANK.open(encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                q = json.loads(line)
+                out[q["question_id"]] = q
+    return out
+
+
+def _my_profile_id(user: dict) -> int:
+    s = get_auth_session()
+    au = s.query(AuthUser).filter(AuthUser.id == int(user["sub"])).first()
+    s.close()
+    if au is None or au.profile_user_id is None:
+        raise HTTPException(404, "Aucun profil métier lié à ce compte.")
+    return au.profile_user_id
+
+
+# ══════════════════ schémas ══════════════════
+class SessionIn(BaseModel):
+    title: str
+    services: list[str] = []
+    participants: list[int] = []
+    n_questions: int = 5
+
+
+class AnswerIn(BaseModel):
+    session_id: int
+    question_id: str
+    answer_text: str
+
+
+# ══════════════════ formateur ══════════════════
+@router.post("")
+def create_session(data: SessionIn, user: dict = Depends(require_role("formateur", "admin"))):
+    db = get_sessions_db()
+    s = EvalSession(title=data.title, created_by=user["email"],
+                    services=data.services, participants=data.participants,
+                    status="brouillon")
+    db.add(s); db.commit()
+    out = {"id": s.id, "title": s.title, "status": s.status}
+    db.close()
+    return out
+
+
+@router.get("")
+def list_sessions(user: dict = Depends(get_current_user)):
+    db = get_sessions_db()
+    rows = db.query(EvalSession).order_by(EvalSession.id.desc()).all()
+    names = {u.id: u.name for u in get_session().query(User).all()}
+    out = []
+    for s in rows:
+        n_q = db.query(SessionQuestion).filter(SessionQuestion.session_id == s.id).count()
+        n_a = db.query(SessionAnswer).filter(SessionAnswer.session_id == s.id).count()
+        n_ev = db.query(SessionAnswer).filter(
+            SessionAnswer.session_id == s.id, SessionAnswer.submission_id.isnot(None)).count()
+        out.append({
+            "id": s.id, "title": s.title, "status": s.status, "services": s.services,
+            "participants": [{"id": p, "name": names.get(p, f"User {p}")} for p in s.participants],
+            "questions": n_q, "answers": n_a, "evaluated": n_ev,
+            "progress_done": s.progress_done, "progress_total": s.progress_total,
+            "message": s.message, "created_by": s.created_by,
+            "created_at": s.created_at.strftime("%d/%m/%Y %H:%M") if s.created_at else None,
+        })
+    db.close()
+    return out
+
+
+@router.post("/{sid}/generate")
+def generate_paper(sid: int, user: dict = Depends(require_role("formateur", "admin"))):
+    """Compose le sujet : sélectionne des questions de la banque selon les services.
+
+    Instantané (pas d'appel LLM) : les questions ont déjà été générées et filtrées
+    en phase 3. On choisit ici celles qui couvrent les services demandés, en
+    variant les niveaux de difficulté.
+    """
+    db = get_sessions_db()
+    sess = db.query(EvalSession).filter(EvalSession.id == sid).first()
+    if sess is None:
+        db.close(); raise HTTPException(404, "Session introuvable")
+
+    bank = load_bank()
+    pool = [q for q in bank.values()
+            if not sess.services or q.get("service") in sess.services]
+    if not pool:
+        db.close(); raise HTTPException(400, "Aucune question pour ces services")
+
+    # Répartir sur les services, en variant les difficultés
+    by_service = {}
+    for q in pool:
+        by_service.setdefault(q.get("service"), []).append(q)
+    for lst in by_service.values():
+        lst.sort(key=lambda q: {"beginner": 0, "intermediate": 1, "advanced": 2}
+                 .get(q.get("difficulty"), 1))
+
+    picked, i = [], 0
+    target = max(1, min(len(pool), 20))
+    while len(picked) < target:
+        added = False
+        for svc in list(by_service):
+            if i < len(by_service[svc]) and len(picked) < target:
+                picked.append(by_service[svc][i]); added = True
+        if not added:
+            break
+        i += 1
+
+    db.query(SessionQuestion).filter(SessionQuestion.session_id == sid).delete()
+    for pos, q in enumerate(picked):
+        db.add(SessionQuestion(session_id=sid, question_id=q["question_id"], position=pos))
+    sess.status = "sujet prêt"
+    sess.message = f"{len(picked)} questions sélectionnées"
+    db.commit()
+    out = {"session_id": sid, "questions": len(picked),
+           "services": sorted({q.get("service") for q in picked})}
+    db.close()
+    return out
+
+
+@router.get("/{sid}/questions")
+def session_questions(sid: int, user: dict = Depends(get_current_user)):
+    db = get_sessions_db()
+    rows = (db.query(SessionQuestion).filter(SessionQuestion.session_id == sid)
+            .order_by(SessionQuestion.position).all())
+    db.close()
+    bank = load_bank()
+    out = []
+    for r in rows:
+        q = bank.get(r.question_id)
+        if not q:
+            continue
+        out.append({"question_id": q["question_id"], "text": q["question"],
+                    "service": q.get("service"), "difficulty": q.get("difficulty"),
+                    "bloom": q.get("bloom_level"), "skill": q.get("skill"),
+                    "position": r.position})
+    return out
+
+
+@router.post("/{sid}/open")
+def open_session(sid: int, user: dict = Depends(require_role("formateur", "admin"))):
+    """Ouvre la session : les participants peuvent répondre."""
+    db = get_sessions_db()
+    s = db.query(EvalSession).filter(EvalSession.id == sid).first()
+    if s is None:
+        db.close(); raise HTTPException(404, "Session introuvable")
+    n = db.query(SessionQuestion).filter(SessionQuestion.session_id == sid).count()
+    if n == 0:
+        db.close(); raise HTTPException(400, "Générez d'abord le sujet")
+    s.status = "ouverte"; s.message = "Les participants peuvent répondre"
+    db.commit(); db.close()
+    return {"session_id": sid, "status": "ouverte", "questions": n}
+
+
+@router.get("/{sid}/pdf")
+def export_pdf(sid: int, user: dict = Depends(require_role("formateur", "admin"))):
+    """Exporte le sujet en PDF (énoncés seuls, sans les réponses attendues)."""
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    from reportlab.lib.units import cm
+    from reportlab.platypus import (Paragraph, SimpleDocTemplate, Spacer, Table,
+                                    TableStyle)
+    from reportlab.lib import colors
+
+    db = get_sessions_db()
+    sess = db.query(EvalSession).filter(EvalSession.id == sid).first()
+    rows = (db.query(SessionQuestion).filter(SessionQuestion.session_id == sid)
+            .order_by(SessionQuestion.position).all())
+    db.close()
+    if sess is None:
+        raise HTTPException(404, "Session introuvable")
+    if not rows:
+        raise HTTPException(400, "Aucune question : générez d'abord le sujet")
+
+    bank = load_bank()
+    EXPORTS.mkdir(parents=True, exist_ok=True)
+    path = EXPORTS / f"sujet_session_{sid}.pdf"
+
+    styles = getSampleStyleSheet()
+    h = ParagraphStyle("h", parent=styles["Title"], fontSize=19, spaceAfter=4,
+                       textColor=colors.HexColor("#1B2A4A"))
+    sub = ParagraphStyle("sub", parent=styles["Normal"], fontSize=10,
+                         textColor=colors.HexColor("#5A6580"), spaceAfter=16)
+    qn = ParagraphStyle("qn", parent=styles["Normal"], fontSize=11.5, leading=16,
+                        spaceBefore=12, spaceAfter=4)
+    meta = ParagraphStyle("meta", parent=styles["Normal"], fontSize=8.5,
+                          textColor=colors.HexColor("#8892A6"), spaceAfter=6)
+    line = ParagraphStyle("line", parent=styles["Normal"], fontSize=9,
+                          textColor=colors.HexColor("#C7D0E0"))
+
+    doc = SimpleDocTemplate(str(path), pagesize=A4, topMargin=2*cm,
+                            bottomMargin=2*cm, leftMargin=2*cm, rightMargin=2*cm,
+                            title=sess.title)
+    story = [Paragraph(sess.title, h),
+             Paragraph(f"Session #{sid} · {len(rows)} questions · "
+                       f"services : {', '.join(sess.services) or 'tous'}", sub)]
+
+    info = Table([["Nom :", "_" * 38, "Date :", "_" * 20]], colWidths=[45, 190, 45, 120])
+    info.setStyle(TableStyle([("FONTSIZE", (0, 0), (-1, -1), 9),
+                              ("TEXTCOLOR", (0, 0), (-1, -1), colors.HexColor("#5A6580")),
+                              ("BOTTOMPADDING", (0, 0), (-1, -1), 10)]))
+    story += [info, Spacer(1, 10)]
+
+    for i, r in enumerate(rows, 1):
+        q = bank.get(r.question_id)
+        if not q:
+            continue
+        story.append(Paragraph(f"<b>{i}.</b> {q['question']}", qn))
+        story.append(Paragraph(
+            f"{q.get('service','')} · {q.get('difficulty','')} · {q.get('bloom_level','')}", meta))
+        for _ in range(4):
+            story.append(Paragraph("_" * 92, line))
+            story.append(Spacer(1, 5))
+
+    doc.build(story)
+    return FileResponse(str(path), media_type="application/pdf",
+                        filename=f"sujet_session_{sid}.pdf")
+
+
+# ══════════════════ évaluation (tâche de fond) ══════════════════
+def _run_evaluation(sid: int):
+    """Évalue toutes les réponses non encore traitées de la session.
+
+    Reprend exactement la logique d'import_forms.py : evaluate_answer() puis
+    écriture d'une Submission et d'une Evaluation.
+    """
+    from agents.graph import evaluate_answer
+
+    db = get_sessions_db()
+    sess = db.query(EvalSession).filter(EvalSession.id == sid).first()
+    pending = db.query(SessionAnswer).filter(
+        SessionAnswer.session_id == sid, SessionAnswer.submission_id.is_(None)).all()
+    sess.status = "évaluation en cours"
+    sess.progress_total = len(pending)
+    sess.progress_done = 0
+    sess.message = f"0 / {len(pending)} réponses évaluées"
+    db.commit()
+
+    bank = load_bank()
+    done = 0
+    for ans in pending:
+        q = bank.get(ans.question_id)
+        if q is None:
+            continue
+        try:
+            result = evaluate_answer(
+                question=q["question"], expected_answer=q["expected_answer"],
+                key_points=q.get("key_points", []), rubric=q.get("rubric", []),
+                candidate_answer=ans.answer_text, service=q.get("service", ""))
+
+            core = get_session()
+            sub = Submission(user_id=ans.user_id, question_id=ans.question_id,
+                             skill=q.get("skill"), service=q.get("service"),
+                             bloom_level=q.get("bloom_level"),
+                             difficulty=q.get("difficulty"),
+                             answer_text=ans.answer_text)
+            core.add(sub); core.commit()
+
+            ev = Evaluation(
+                submission_id=sub.id,
+                grader_score=result["grader"]["score"],
+                reasoner_score=result["reasoner"]["score"],
+                critic_score=result["critic"]["score"],
+                final_score=result["final_score"],
+                feedback=result.get("feedback", ""),
+                details=result)
+            core.add(ev); core.commit()
+            sub_id = sub.id
+            core.close()
+
+            ans.submission_id = sub_id
+            done += 1
+        except Exception as e:
+            sess.message = f"Erreur sur une réponse : {str(e)[:120]}"
+        sess.progress_done = done
+        sess.message = f"{done} / {len(pending)} réponses évaluées"
+        db.commit()
+
+    sess.status = "terminée"
+    sess.message = f"Évaluation terminée : {done} réponse(s)"
+    db.commit(); db.close()
+
+
+@router.post("/{sid}/evaluate")
+def evaluate_session(sid: int, background: BackgroundTasks,
+                     user: dict = Depends(require_role("formateur", "admin"))):
+    db = get_sessions_db()
+    sess = db.query(EvalSession).filter(EvalSession.id == sid).first()
+    if sess is None:
+        db.close(); raise HTTPException(404, "Session introuvable")
+    pending = db.query(SessionAnswer).filter(
+        SessionAnswer.session_id == sid, SessionAnswer.submission_id.is_(None)).count()
+    if pending == 0:
+        db.close(); raise HTTPException(400, "Aucune réponse en attente d'évaluation")
+    if sess.status == "évaluation en cours":
+        db.close(); raise HTTPException(409, "Une évaluation est déjà en cours")
+    db.close()
+    background.add_task(_run_evaluation, sid)
+    return {"session_id": sid, "started": True, "pending": pending,
+            "note": "Comptez environ 1 à 3 minutes par réponse selon le modèle."}
+
+
+@router.get("/{sid}/status")
+def session_status(sid: int, user: dict = Depends(get_current_user)):
+    db = get_sessions_db()
+    s = db.query(EvalSession).filter(EvalSession.id == sid).first()
+    if s is None:
+        db.close(); raise HTTPException(404, "Session introuvable")
+    out = {"id": s.id, "status": s.status, "message": s.message,
+           "progress_done": s.progress_done, "progress_total": s.progress_total}
+    db.close()
+    return out
+
+
+@router.get("/{sid}/results")
+def session_results(sid: int, user: dict = Depends(require_role("formateur", "admin", "rh", "manager"))):
+    """Scores obtenus dans cette session, par participant et par question."""
+    db = get_sessions_db()
+    answers = db.query(SessionAnswer).filter(SessionAnswer.session_id == sid).all()
+    db.close()
+    bank = load_bank()
+    core = get_session()
+    names = {u.id: u.name for u in core.query(User).all()}
+    out = []
+    for a in answers:
+        row = {"user_id": a.user_id, "person": names.get(a.user_id, f"User {a.user_id}"),
+               "question_id": a.question_id,
+               "question": (bank.get(a.question_id) or {}).get("question", ""),
+               "service": (bank.get(a.question_id) or {}).get("service"),
+               "answer": a.answer_text, "evaluated": a.submission_id is not None}
+        if a.submission_id:
+            ev = core.query(Evaluation).filter(Evaluation.submission_id == a.submission_id).first()
+            if ev:
+                row.update({"grader": ev.grader_score, "reasoner": ev.reasoner_score,
+                            "critic": ev.critic_score, "final": ev.final_score,
+                            "feedback": ev.feedback})
+        out.append(row)
+    core.close()
+    return out
+
+
+# ══════════════════ collaborateur ══════════════════
+@router.get("/me/open")
+def my_open_sessions(user: dict = Depends(get_current_user)):
+    """Sessions ouvertes où le collaborateur connecté est participant."""
+    uid = _my_profile_id(user)
+    db = get_sessions_db()
+    rows = db.query(EvalSession).filter(EvalSession.status.in_(["ouverte", "évaluation en cours", "terminée"])).all()
+    out = []
+    for s in rows:
+        if uid not in (s.participants or []):
+            continue
+        qs = db.query(SessionQuestion).filter(SessionQuestion.session_id == s.id).count()
+        answered = db.query(SessionAnswer).filter(
+            SessionAnswer.session_id == s.id, SessionAnswer.user_id == uid).count()
+        out.append({"id": s.id, "title": s.title, "status": s.status,
+                    "questions": qs, "answered": answered,
+                    "services": s.services})
+    db.close()
+    return out
+
+
+@router.get("/me/{sid}/questions")
+def my_session_questions(sid: int, user: dict = Depends(get_current_user)):
+    """Questions de la session + réponse déjà donnée s'il y en a une."""
+    uid = _my_profile_id(user)
+    db = get_sessions_db()
+    qs = (db.query(SessionQuestion).filter(SessionQuestion.session_id == sid)
+          .order_by(SessionQuestion.position).all())
+    mine = {a.question_id: a for a in db.query(SessionAnswer).filter(
+        SessionAnswer.session_id == sid, SessionAnswer.user_id == uid).all()}
+    db.close()
+    bank = load_bank()
+    out = []
+    for r in qs:
+        q = bank.get(r.question_id)
+        if not q:
+            continue
+        a = mine.get(r.question_id)
+        out.append({"question_id": q["question_id"], "text": q["question"],
+                    "service": q.get("service"), "difficulty": q.get("difficulty"),
+                    "position": r.position,
+                    "answer_text": a.answer_text if a else "",
+                    "answered": a is not None,
+                    "evaluated": bool(a and a.submission_id)})
+    return out
+
+
+@router.post("/me/answer")
+def submit_answer(data: AnswerIn, user: dict = Depends(get_current_user)):
+    """Enregistre (ou met à jour) la réponse du collaborateur connecté."""
+    uid = _my_profile_id(user)
+    if not data.answer_text.strip():
+        raise HTTPException(400, "La réponse est vide")
+
+    db = get_sessions_db()
+    sess = db.query(EvalSession).filter(EvalSession.id == data.session_id).first()
+    if sess is None:
+        db.close(); raise HTTPException(404, "Session introuvable")
+    if sess.status != "ouverte":
+        db.close(); raise HTTPException(400, f"La session n'accepte pas de réponse (statut : {sess.status})")
+    if uid not in (sess.participants or []):
+        db.close(); raise HTTPException(403, "Vous ne participez pas à cette session")
+
+    existing = db.query(SessionAnswer).filter(
+        SessionAnswer.session_id == data.session_id,
+        SessionAnswer.user_id == uid,
+        SessionAnswer.question_id == data.question_id).first()
+
+    if existing:
+        if existing.submission_id:
+            db.close(); raise HTTPException(400, "Réponse déjà évaluée, modification impossible")
+        existing.answer_text = data.answer_text
+    else:
+        db.add(SessionAnswer(session_id=data.session_id, user_id=uid,
+                             question_id=data.question_id, answer_text=data.answer_text))
+    db.commit()
+    total = db.query(SessionQuestion).filter(SessionQuestion.session_id == data.session_id).count()
+    answered = db.query(SessionAnswer).filter(
+        SessionAnswer.session_id == data.session_id, SessionAnswer.user_id == uid).count()
+    db.close()
+    return {"saved": True, "answered": answered, "total": total}
+
+
+@router.get("/me/{sid}/results")
+def my_session_results(sid: int, user: dict = Depends(get_current_user)):
+    """Scores du collaborateur pour cette session."""
+    uid = _my_profile_id(user)
+    db = get_sessions_db()
+    answers = db.query(SessionAnswer).filter(
+        SessionAnswer.session_id == sid, SessionAnswer.user_id == uid).all()
+    db.close()
+    bank = load_bank()
+    core = get_session()
+    out = []
+    for a in answers:
+        q = bank.get(a.question_id) or {}
+        row = {"question": q.get("question", ""), "service": q.get("service"),
+               "answer": a.answer_text, "evaluated": a.submission_id is not None}
+        if a.submission_id:
+            ev = core.query(Evaluation).filter(Evaluation.submission_id == a.submission_id).first()
+            if ev:
+                row.update({"grader": ev.grader_score, "reasoner": ev.reasoner_score,
+                            "critic": ev.critic_score, "final": ev.final_score,
+                            "feedback": ev.feedback})
+        out.append(row)
+    core.close()
+    return out

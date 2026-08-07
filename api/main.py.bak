@@ -1,0 +1,329 @@
+"""API EvaSmart — expose le système existant en HTTP.
+
+PRINCIPE : cette couche ne recalcule rien. Elle appelle les modules déjà
+écrits (skills.profile, skills.recommendations, skills.ontology, db.models)
+et renvoie leurs résultats en JSON. Toute la logique métier reste où elle est.
+
+SÉCURITÉ : chaque route est protégée par le JWT émis par /auth/login.
+require_role(...) restreint l'accès selon le rôle (RBAC).
+
+Lancement :
+    uvicorn api.main:app --reload --port 8000
+Documentation interactive : http://localhost:8000/docs
+"""
+from __future__ import annotations
+
+import json
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from fastapi import Depends, FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+
+from auth.auth_api import get_current_user, require_role, router as auth_router
+from auth.auth_models import AuthUser, get_auth_session
+from config import settings
+from db.models import Evaluation, Submission, User, get_session
+from skills.profile import compute_profile
+from skills.recommendations import build_learning_plan, identify_gaps
+
+app = FastAPI(title="EvaSmart API", version="1.0")
+
+# Le frontend tourne sur un autre port : il faut autoriser les requêtes croisées.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origin_regex=r"http://(localhost|127\.0\.0\.1):\d+",
+    allow_credentials=True, allow_methods=["*"], allow_headers=["*"],
+)
+
+app.include_router(auth_router)
+
+from api.sessions_api import router as sessions_router
+app.include_router(sessions_router)
+
+from api.requests_api import router as requests_router
+app.include_router(requests_router)
+
+from api.settings_api import router as admin_router
+app.include_router(admin_router)
+
+from api.access_api import router as access_router
+app.include_router(access_router)
+
+PROCESSED = Path(__file__).parent.parent / "data" / "processed"
+
+
+# ══════════════════ santé ══════════════════
+@app.get("/api/health")
+def health():
+    return {"status": "ok", "service": "EvaSmart API"}
+
+
+# ══════════════════ profils ══════════════════
+def _profile_payload(user_id: int) -> dict:
+    """Profil enrichi : scores + lacunes, tel que produit par le système."""
+    prof = compute_profile(user_id)
+    sess = get_session()
+    u = sess.query(User).filter(User.id == user_id).first()
+    sess.close()
+    prof["name"] = u.name if u else f"User {user_id}"
+    try:
+        prof["gaps"] = identify_gaps(prof)
+    except Exception:
+        prof["gaps"] = []
+    return prof
+
+
+@app.get("/api/me/profile")
+def my_profile(user: dict = Depends(get_current_user)):
+    """Profil du collaborateur connecté (via profile_user_id)."""
+    sess = get_auth_session()
+    au = sess.query(AuthUser).filter(AuthUser.id == int(user["sub"])).first()
+    sess.close()
+    if au is None or au.profile_user_id is None:
+        raise HTTPException(404, "Aucun profil métier lié à ce compte. "
+                                 "Lancez scripts/link_profiles.py")
+    return _profile_payload(au.profile_user_id)
+
+
+@app.get("/api/people")
+def list_people(user: dict = Depends(require_role("admin", "rh", "manager", "formateur"))):
+    """Tous les collaborateurs ayant au moins une évaluation, avec leur profil."""
+    sess = get_session()
+    users = sess.query(User).all()
+    ids = [u.id for u in users]
+    names = {u.id: u.name for u in users}
+    sess.close()
+
+    out = []
+    for uid in ids:
+        try:
+            prof = compute_profile(uid)
+            if prof.get("n_evaluations", 0) == 0:
+                continue
+            prof["name"] = names.get(uid, f"User {uid}")
+            out.append(prof)
+        except Exception:
+            continue
+    return sorted(out, key=lambda p: -p.get("overall", 0))
+
+
+@app.get("/api/people/{user_id}")
+def person(user_id: int,
+           user: dict = Depends(require_role("admin", "rh", "manager", "formateur"))):
+    return _profile_payload(user_id)
+
+
+@app.get("/api/people/{user_id}/plan")
+def person_plan(user_id: int,
+                user: dict = Depends(require_role("admin", "rh", "manager", "formateur"))):
+    """Plan de formation : lacunes + ressources recommandées par le RAG."""
+    prof = compute_profile(user_id)
+    try:
+        return build_learning_plan(prof)
+    except Exception as e:
+        raise HTTPException(500, f"Plan indisponible : {e}")
+
+
+@app.get("/api/me/plan")
+def my_plan(user: dict = Depends(get_current_user)):
+    sess = get_auth_session()
+    au = sess.query(AuthUser).filter(AuthUser.id == int(user["sub"])).first()
+    sess.close()
+    if au is None or au.profile_user_id is None:
+        raise HTTPException(404, "Aucun profil métier lié à ce compte.")
+    return build_learning_plan(compute_profile(au.profile_user_id))
+
+
+# ══════════════════ ontologie (Neo4j) ══════════════════
+@app.get("/api/ontology/graph")
+def ontology_graph(user: dict = Depends(get_current_user)):
+    """Structure du graphe de compétences (domaines, compétences, prérequis)."""
+    from skills.ontology import DOMAINS, SKILLS
+    return {
+        "domains": DOMAINS,
+        "skills": [
+            {"name": s, "domain": d, "requires": p} for s, (d, p) in SKILLS.items()
+        ],
+    }
+
+
+@app.get("/api/people/{user_id}/prerequisites")
+def person_prerequisites(user_id: int, threshold: float = 60.0,
+                         user: dict = Depends(get_current_user)):
+    """Compétences faibles + prérequis eux-mêmes faibles (apport du graphe)."""
+    try:
+        from skills.ontology import project_user, weak_prerequisites
+        prof = compute_profile(user_id)
+        project_user(user_id, prof)
+        return weak_prerequisites(user_id, threshold=threshold)
+    except Exception as e:
+        raise HTTPException(503, f"Neo4j indisponible : {e}")
+
+
+# ══════════════════ questions ══════════════════
+@app.get("/api/questions")
+def questions(service: str | None = None, level: str | None = None,
+              user: dict = Depends(require_role("admin", "formateur", "rh"))):
+    """Banque de questions retenues après filtrage."""
+    path = PROCESSED / "questions_accepted.jsonl"
+    if not path.exists():
+        raise HTTPException(404, "questions_accepted.jsonl introuvable")
+    rows = []
+    with path.open(encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            q = json.loads(line)
+            if service and q.get("service") != service:
+                continue
+            if level and q.get("difficulty") != level:
+                continue
+            rows.append({
+                "id": q.get("question_id") or q.get("id"),
+                "text": q.get("question"),
+                "service": q.get("service"),
+                "bloom": q.get("bloom_level"),
+                "level": q.get("difficulty"),
+                "skill": q.get("skill"),
+            })
+    return rows
+
+
+# ══════════════════ évaluations ══════════════════
+@app.get("/api/evaluations")
+def evaluations(limit: int = 50,
+                user: dict = Depends(require_role("admin", "rh", "manager", "formateur"))):
+    """Évaluations récentes avec le détail des trois agents."""
+    sess = get_session()
+    rows = (sess.query(Evaluation, Submission, User)
+            .join(Submission, Evaluation.submission_id == Submission.id)
+            .join(User, Submission.user_id == User.id)
+            .order_by(Evaluation.id.desc()).limit(limit).all())
+    out = []
+    for ev, sub, u in rows:
+        details = ev.details or {}
+        if isinstance(details, str):
+            try:
+                details = json.loads(details)
+            except Exception:
+                details = {}
+        out.append({
+            "id": ev.id, "person": u.name, "service": sub.service,
+            "skill": sub.skill, "difficulty": sub.difficulty,
+            "grader": ev.grader_score, "reasoner": ev.reasoner_score,
+            "critic": ev.critic_score, "final": ev.final_score,
+            "veto": bool(details.get("veto_applied")),
+            "feedback": ev.feedback,
+            "date": ev.created_at.strftime("%d/%m/%Y") if ev.created_at else None,
+        })
+    sess.close()
+    return out
+
+
+@app.get("/api/me/evaluations")
+def my_evaluations(user: dict = Depends(get_current_user)):
+    sess = get_auth_session()
+    au = sess.query(AuthUser).filter(AuthUser.id == int(user["sub"])).first()
+    sess.close()
+    if au is None or au.profile_user_id is None:
+        raise HTTPException(404, "Aucun profil métier lié à ce compte.")
+
+    s = get_session()
+    rows = (s.query(Evaluation, Submission)
+            .join(Submission, Evaluation.submission_id == Submission.id)
+            .filter(Submission.user_id == au.profile_user_id)
+            .order_by(Evaluation.id.desc()).all())
+    out = []
+    for ev, sub in rows:
+        details = ev.details or {}
+        if isinstance(details, str):
+            try:
+                details = json.loads(details)
+            except Exception:
+                details = {}
+        out.append({
+            "id": ev.id, "service": sub.service, "skill": sub.skill,
+            "grader": ev.grader_score, "reasoner": ev.reasoner_score,
+            "critic": ev.critic_score, "final": ev.final_score,
+            "veto": bool(details.get("veto_applied")), "feedback": ev.feedback,
+            "date": ev.created_at.strftime("%d/%m/%Y") if ev.created_at else None,
+        })
+    s.close()
+    return out
+
+
+# ══════════════════ comptes (admin) ══════════════════
+@app.get("/api/users")
+def users(user: dict = Depends(require_role("admin"))):
+    sess = get_auth_session()
+    rows = sess.query(AuthUser).all()
+    out = [{"id": u.id, "email": u.email, "name": u.full_name, "role": u.role,
+            "org_id": u.org_id, "profile_user_id": u.profile_user_id} for u in rows]
+    sess.close()
+    return out
+
+
+# ══════════════════ système ══════════════════
+@app.get("/api/system")
+def system(user: dict = Depends(require_role("admin", "formateur", "rh"))):
+    """État réel de la plateforme : corpus, base, métriques."""
+    info = {"embedding": settings.embedding_model, "services": []}
+
+    # Qdrant
+    try:
+        from qdrant_client import QdrantClient
+        c = QdrantClient(url=settings.qdrant_url)
+        col = c.get_collection(settings.qdrant_collection)
+        info["fragments"] = col.points_count
+        info["vector_size"] = col.config.params.vectors.size
+        info["services"].append({"name": "Qdrant", "container": "ski-qdrant",
+                                 "state": "actif",
+                                 "detail": f"{col.points_count} vecteurs"})
+    except Exception as e:
+        info["fragments"] = None
+        info["services"].append({"name": "Qdrant", "container": "ski-qdrant",
+                                 "state": "arrêté", "detail": str(e)[:60]})
+
+    # PostgreSQL
+    try:
+        s = get_session()
+        n_eval = s.query(Evaluation).count()
+        n_users = s.query(User).count()
+        s.close()
+        info["evaluations"] = n_eval
+        info["users"] = n_users
+        info["services"].append({"name": "PostgreSQL", "container": "ski-postgres",
+                                 "state": "actif",
+                                 "detail": f"{n_eval} évaluations · {n_users} utilisateurs"})
+    except Exception as e:
+        info["services"].append({"name": "PostgreSQL", "container": "ski-postgres",
+                                 "state": "arrêté", "detail": str(e)[:60]})
+
+    # Neo4j
+    try:
+        from skills.ontology import get_driver
+        d = get_driver()
+        with d.session() as s:
+            n = s.run("MATCH (n:Skill) RETURN count(n) AS c").single()["c"]
+            r = s.run("MATCH ()-[r:REQUIRES]->() RETURN count(r) AS c").single()["c"]
+        d.close()
+        info["services"].append({"name": "Neo4j", "container": "ski-neo4j",
+                                 "state": "actif",
+                                 "detail": f"{n} compétences · {r} dépendances"})
+    except Exception as e:
+        info["services"].append({"name": "Neo4j", "container": "ski-neo4j",
+                                 "state": "arrêté", "detail": str(e)[:60]})
+
+    # Questions
+    qa = PROCESSED / "questions_accepted.jsonl"
+    if qa.exists():
+        info["questions"] = sum(1 for l in qa.open(encoding="utf-8") if l.strip())
+
+    # Métriques RAGAS (fichier produit par les runs)
+    res = Path(__file__).parent.parent / "resultats_ragas_final.txt"
+    info["ragas_raw"] = res.read_text(encoding="utf-8") if res.exists() else None
+    return info

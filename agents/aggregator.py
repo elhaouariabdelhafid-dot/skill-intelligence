@@ -25,10 +25,21 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from agents.state import EvaluationState
 
+# Valeurs de repli ; les valeurs effectives viennent de la base et sont
+# modifiables par l'administrateur sans redemarrage.
 W_GRADER = 0.45
 W_REASONER = 0.45
 W_CRITIC = 0.10
 VETO_CAP = 1.5
+
+
+def _weights() -> tuple[float, float, float, float]:
+    try:
+        from api.settings_models import get_float
+        return (get_float("weight_grader"), get_float("weight_reasoner"),
+                get_float("weight_critic"), get_float("veto_cap"))
+    except Exception:
+        return W_GRADER, W_REASONER, W_CRITIC, VETO_CAP
 
 
 def aggregate(state: EvaluationState) -> dict:
@@ -37,16 +48,22 @@ def aggregate(state: EvaluationState) -> dict:
     reasoner = state["reasoner"]
     critic = state["critic"]
 
-    # Critic : score = sévérité des problèmes (0 bon, 4 mauvais) -> on inverse
-    critic_positive = 4.0 - critic["score"]
+    w_g, w_r, w_c, veto_cap = _weights()
 
-    base = (W_GRADER * grader["score"]
-            + W_REASONER * reasoner["score"]
-            + W_CRITIC * critic_positive)
+    # Le Critic ne peut que penaliser : une reponse sans erreur ne gagne
+    # pas de points parce qu'elle est vide. On part du score de contenu
+    # et on retranche la severite constatee.
+    content = w_g * grader["score"] + w_r * reasoner["score"]
+    penalty = w_c * critic["score"]
+    base = content - penalty
+
+    # Plancher : sans exactitude ni raisonnement, le score est nul.
+    if grader["score"] <= 0 and reasoner["score"] <= 0:
+        base = 0.0
 
     # Veto hallucination majeure
     veto = "MAJOR_HALLUCINATION" in critic.get("citations", [])
-    final = min(base, VETO_CAP) if veto else base
+    final = min(base, veto_cap) if veto else base
     final = round(max(0.0, min(4.0, final)), 2)
 
     # Feedback structuré, assemblé à partir des justifications (pas de réévaluation)

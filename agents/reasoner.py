@@ -16,6 +16,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from agents.state import AgentResult, EvaluationState
+from agents.failures import EvaluationFailed
 from llm.client import json_with_backoff
 
 from pydantic import BaseModel, Field
@@ -57,10 +58,11 @@ Assess logical coherence and structure separately, then give an overall score.""
     try:
         out = json_with_backoff(prompt, ReasonerOutput, system=REASONER_SYSTEM,
                            temperature=0.2)
-    except RuntimeError:
-        return {"reasoner": AgentResult(score=2.0,
-                                        justification="Évaluation indisponible (erreur LLM)",
-                                        citations=[])}
+    except RuntimeError as exc:
+        # Un echec LLM ne doit pas devenir une note moyenne : on le
+        # signale pour que la reponse reste non evaluee et relancable.
+        raise EvaluationFailed(
+            f"Agent reasoner indisponible : {exc}") from exc
 
     justification = (f"{out.justification} | Logique : {out.logic_quality} | "
                      f"Structure : {out.structure_quality}")

@@ -15,7 +15,18 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-GAP_THRESHOLD = 60.0        # sous 60%, la compétence est un besoin de formation
+# Valeur de repli. Le seuil effectif est configure par l'administrateur et lu
+# en base : les deux vues du systeme (graphe et parcours) doivent s'accorder.
+GAP_THRESHOLD = 60.0
+
+
+def _gap_threshold() -> float:
+    """Seuil de maitrise courant, ou valeur de repli si la table est absente."""
+    try:
+        from api.settings_models import get_float
+        return get_float("skill_threshold")
+    except Exception:
+        return GAP_THRESHOLD
 PRIORITY_HIGH = 40.0        # sous 40%, priorité haute
 
 
@@ -23,12 +34,12 @@ def identify_gaps(profile: dict) -> list[dict]:
     """Détecte les compétences faibles, triées par priorité."""
     gaps = []
     for service, score in profile["services"].items():
-        if score < GAP_THRESHOLD:
+        if score < _gap_threshold():
             gaps.append({
                 "service": service,
                 "score": score,
                 "priority": "haute" if score < PRIORITY_HIGH else "moyenne",
-                "gap": round(GAP_THRESHOLD - score, 1),
+                "gap": round(_gap_threshold() - score, 1),
             })
     return sorted(gaps, key=lambda g: g["score"])
 

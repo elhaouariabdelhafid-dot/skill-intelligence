@@ -185,6 +185,51 @@ def _extract_json(text: str) -> str:
     raise ValueError("JSON incomplet dans la réponse")
 
 
+def _schema_example(schema) -> str:
+    """Construit un exemple de sortie a partir du schema Pydantic.
+
+    Montrer une reponse plutot que le schema : un petit modele imite ce qu'il
+    voit. Lui presenter un objet JSON de description l'incite a le recopier.
+    """
+    props = schema.model_json_schema().get("properties", {})
+    example = {}
+    for name, spec in props.items():
+        t = spec.get("type")
+        if t == "integer":
+            example[name] = 2
+        elif t == "number":
+            example[name] = 2.0
+        elif t == "boolean":
+            example[name] = False
+        elif t == "array":
+            example[name] = ["..."]
+        else:
+            example[name] = "..."
+    return json.dumps(example, ensure_ascii=False)
+
+
+def _schema_fields(schema) -> str:
+    """Decrit les champs en clair : nom, type, role."""
+    props = schema.model_json_schema().get("properties", {})
+    required = set(schema.model_json_schema().get("required", []))
+    lines = []
+    for name, spec in props.items():
+        t = spec.get("type", "string")
+        if t == "array":
+            t = "array of " + spec.get("items", {}).get("type", "string")
+        desc = spec.get("description", "")
+        mark = "" if name in required else " (optional)"
+        lines.append(f"- {name} ({t}){mark}: {desc}")
+    return "\n".join(lines)
+
+
+def _looks_like_schema(raw: str) -> bool:
+    """Detecte le cas ou le modele a renvoye le schema au lieu d'une reponse."""
+    lowered = raw.lower()
+    return ('"properties"' in lowered or '"$schema"' in lowered
+            or '"type": "object"' in lowered)
+
+
 def complete_json(prompt: str, schema: Type[T], system: str | None = None,
                   temperature: float = 0.3, max_tokens: int = 2000) -> T:
     """Appel LLM avec validation Pydantic et re-tentative automatique.
@@ -192,24 +237,34 @@ def complete_json(prompt: str, schema: Type[T], system: str | None = None,
     PIÈGE ÉVITÉ : ne jamais faire json.loads() directement sur la sortie d'un 7B.
     Le taux d'échec au premier essai est de 10-30 % selon le modèle.
     """
-    schema_json = json.dumps(schema.model_json_schema(), ensure_ascii=False)
     full_system = (
         (system + "\n\n" if system else "")
-        + "You MUST reply with a single valid JSON object matching this schema.\n"
-        + "No markdown fences, no preamble, no explanation. JSON only.\n"
-        + f"SCHEMA: {schema_json}"
+        + "Reply with ONE JSON object and nothing else. "
+        + "No markdown fences, no preamble, no explanation.\n\n"
+        + "FIELDS TO FILL:\n" + _schema_fields(schema) + "\n\n"
+        + "SHAPE OF YOUR REPLY (replace the placeholder values with your own "
+        + "analysis, keep the same keys):\n" + _schema_example(schema) + "\n\n"
+        + "Never reply with a schema, a type description or the word "
+        + "'properties'. Reply with the filled object only."
     )
 
     last_error = ""
+    retry_hint = "Reply with valid JSON only."
     for attempt in range(MAX_RETRIES):
         try:
             raw = complete(
                 prompt if attempt == 0
-                else f"{prompt}\n\nPrevious attempt failed: {last_error}\nReply with valid JSON only.",
+                else f"{prompt}\n\nPrevious attempt failed: {last_error}\n{retry_hint}",
                 system=full_system,
                 temperature=temperature + 0.1 * attempt,  # varier si blocage
                 max_tokens=max_tokens,
             )
+            if _looks_like_schema(raw):
+                # Le modele a recopie le schema : on le lui dit explicitement
+                retry_hint = ("You replied with the schema instead of the answer. "
+                              "Reply with the FILLED object: "
+                              + _schema_example(schema))
+                raise ValueError("schema echoed instead of answer")
             return schema.model_validate_json(_extract_json(raw))
         except (ValueError, ValidationError, json.JSONDecodeError) as e:
             last_error = str(e)[:300]

@@ -40,6 +40,7 @@ class Settings(BaseSettings):
 
     # Postgres
     database_url: str = "postgresql://skill:skill@localhost:5432/skilldb"
+    jwt_secret: str = "change-me-in-production-please"
     neo4j_uri: str = "bolt://localhost:7687"
     neo4j_user: str = "neo4j"
     neo4j_password: str = "password123"

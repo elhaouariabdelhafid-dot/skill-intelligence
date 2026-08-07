@@ -18,6 +18,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from agents.state import AgentResult, EvaluationState
+from agents.failures import EvaluationFailed
 from llm.client import json_with_backoff
 
 from pydantic import BaseModel, Field
@@ -53,23 +54,28 @@ DOCUMENTATION CONTEXT (the source of truth):
 CANDIDATE'S ANSWER:
 {state['candidate_answer']}
 
-Score 0-4 based ONLY on technical correctness:
-- 4: all claims accurate and supported by the documentation
-- 3: mostly accurate, minor imprecision
-- 2: partially accurate, some errors
-- 1: mostly inaccurate
-- 0: entirely wrong or off-topic
+LEVEL ANCHORS — use them literally, do not invent stricter requirements:
+- 4: every key point is covered and the claims are accurate
+- 3: the answer is accurate and covers most key points; a short answer that
+     names the right mechanism and explains it briefly deserves 3
+- 2: accurate on the main point but several key points are missing
+- 1: a few correct elements among significant errors
+- 0: wrong, off-topic, or naming something that does not exist
+
+Length is NOT a criterion. A concise answer that is correct and covers the key
+points scores as high as a long one. Do not lower the score because the
+candidate did not repeat the reference answer word for word.
 
 List the correct and incorrect points explicitly."""
 
     try:
         out = json_with_backoff(prompt, GraderOutput, system=GRADER_SYSTEM,
                            temperature=0.1)
-    except RuntimeError:
-        # En cas d'échec LLM, score neutre plutôt que planter tout le graphe
-        return {"grader": AgentResult(score=2.0,
-                                      justification="Évaluation indisponible (erreur LLM)",
-                                      citations=[])}
+    except RuntimeError as exc:
+        # Un echec LLM ne doit pas devenir une note moyenne : on le
+        # signale pour que la reponse reste non evaluee et relancable.
+        raise EvaluationFailed(
+            f"Agent grader indisponible : {exc}") from exc
 
     justification = out.justification
     if out.incorrect_points:
