@@ -82,11 +82,14 @@ skill-intelligence/
 │   ├── human_ratings/         notes brutes (non versionné)
 │   └── results/               sorties d'évaluation (non versionné)
 │
-├── frontend-web/          ── INTERFACE (React + Vite)
+├── frontend-web/          ── INTERFACE UTILISATEUR (React + Vite)
 │   ├── src/App.jsx            application principale
 │   ├── src/main.jsx           point d'entrée
 │   ├── src/styles.css         styles
 │   └── public/                logos et favicon
+│
+├── dashboard/             ── TABLEAU DE BORD RH (Streamlit)
+│   └── app.py                 3 vues : équipe, profil individuel, détail
 │
 ├── scripts/               ── UTILITAIRES (exécutés manuellement)
 │   ├── init.sh                initialisation de l'environnement
@@ -117,8 +120,17 @@ skill-intelligence/
     ├── backups/               fichiers .bak / .bakN
     ├── before_fix/            versions antérieures des agents
     ├── patches/               correctifs ponctuels appliqués
-    └── legacy/                ancien frontend Streamlit
+    └── legacy/                code remplacé, conservé pour référence
 ```
+
+## Les deux interfaces
+
+Le projet expose **deux** interfaces distinctes — ne pas les confondre :
+
+| Dossier | Technologie | Public | Lancement |
+|---|---|---|---|
+| `frontend-web/` | React + Vite | Étudiants, enseignants, admins | `make web` |
+| `dashboard/` | Streamlit | RH / pilotage (vue Phase 7) | `make dashboard` |
 
 ## Chaîne de traitement
 

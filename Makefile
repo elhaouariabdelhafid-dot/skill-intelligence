@@ -1,4 +1,5 @@
-.PHONY: up down init files index query query-v2 eval-compare gen filter phase3
+.PHONY: up down init files index query query-v2 eval-compare gen filter phase3 \
+        api web dashboard test test-agents clean
 
 up:              ## Démarrer l'infrastructure
 	docker compose up -d qdrant postgres ollama
@@ -31,3 +32,22 @@ filter:          ## Phase 3 : filtrer les candidates
 	python generation/filters.py --report
 
 phase3: gen filter  ## Phase 3 complète
+
+api:             ## Lancer l'API FastAPI
+	uvicorn api.main:app --reload --port 8000
+
+web:             ## Lancer l'interface React
+	cd frontend-web && npm run dev
+
+dashboard:       ## Lancer le tableau de bord Streamlit
+	streamlit run dashboard/app.py
+
+test:            ## Tests de régression
+	python tests/test_regression.py
+
+test-agents:     ## Test du pipeline multi-agents (make test-agents Q=good)
+	python tests/test_evaluation.py --quality $(or $(Q),good)
+
+clean:           ## Supprimer caches Python et fichiers temporaires
+	find . -path ./.venv -prune -o -name '__pycache__' -type d -print0 | xargs -0 rm -rf
+	find . -path ./.venv -prune -o -name '*.py[co]' -print0 | xargs -0 rm -f

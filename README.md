@@ -50,6 +50,8 @@ bash scripts/init.sh           # venv, dépendances, Docker, corpus AWS, Ollama
 source .venv/bin/activate
 ```
 
+> La structure détaillée des dossiers est décrite dans [`STRUCTURE.md`](STRUCTURE.md).
+
 Vérifier que le corpus est indexé :
 ```bash
 curl -s http://localhost:6333/collections/aws_docs | grep -o '"points_count":[0-9]*'
@@ -66,7 +68,7 @@ source .venv/bin/activate
 docker start ski-qdrant ski-postgres ski-neo4j
 sed -i 's/^LLM_PROVIDER=.*/LLM_PROVIDER=ollama/' .env   # LLM local, sans quota
 docker start ski-ollama
-streamlit run frontend/app.py                            # → http://localhost:8501
+streamlit run dashboard/app.py                           # → http://localhost:8501
 ```
 
 ---
@@ -102,15 +104,15 @@ auto-critique LLM (F4). Cible : taux de rejet < 30 %.
 
 ### Phase 4 — Évaluation multi-agents
 ```bash
-python agents/test_evaluation.py --quality good   # réponse correcte → score élevé
-python agents/test_evaluation.py --quality bad    # hallucination → veto, score bas
+python tests/test_evaluation.py --quality good   # réponse correcte → score élevé
+python tests/test_evaluation.py --quality bad    # hallucination → veto, score bas
 ```
 Trois agents (Grader, Reasoner, Critic) orchestrés par LangGraph, agrégation
 pondérée avec veto anti-hallucination.
 
 ### Phase 5 — Profils & recommandations
 ```bash
-python import_forms.py --csv reponses.csv --name-column "NOM:"   # évalue des réponses réelles
+python scripts/import_forms.py --csv data/forms/reponses.csv --name-column "NOM:"   # évalue des réponses réelles
 python skills/profile.py --user 4                # profil de compétences
 python skills/recommendations.py --user 4        # plan de formation ciblé
 ```
@@ -125,7 +127,7 @@ python evaluation/human_correlation.py    # corrélation Spearman humain/IA
 ```bash
 python skills/ontology.py --build         # graphe de compétences Neo4j
 python skills/ontology.py --project 4     # projette un profil + prérequis faibles
-streamlit run frontend/app.py             # tableau de bord (3 vues)
+streamlit run dashboard/app.py            # tableau de bord (3 vues)
 ```
 
 ---
@@ -144,22 +146,29 @@ streamlit run frontend/app.py             # tableau de bord (3 vues)
 ## Structure du projet
 
 ```
-agents/       Agents d'évaluation (Grader, Reasoner, Critic) + graphe LangGraph
-api/          Points d'entrée API
-core/         Utilitaires transverses
-data/         Corpus, chunks, questions générées
-db/           Modèles et session PostgreSQL
-evaluation/   RAGAS + validation humain/IA
-frontend/     Tableau de bord Streamlit
-generation/   Génération et filtrage de questions
-ingestion/    Chargement, découpe, embeddings, indexation
-llm/          Couche d'accès unifiée aux modèles (Groq, Ollama...)
-notebooks/    Exploration
-retrieval/    Recherche dense, hybride, reranking
-scripts/      Scripts d'initialisation
-skills/       Profils, recommandations, ontologie
-archive/      Patchs et paquets d'installation (historique)
+agents/         Agents d'évaluation (Grader, Reasoner, Critic) + graphe LangGraph
+api/            Points d'entrée API (FastAPI)
+auth/           Authentification : bcrypt, JWT, rôles
+core/           Utilitaires transverses
+dashboard/      Tableau de bord Streamlit (3 vues)
+data/           Corpus, chunks, questions générées, réponses CSV
+db/             Modèles et session PostgreSQL
+evaluation/     RAGAS + validation humain/IA
+frontend-web/   Interface web React + Vite
+generation/     Génération et filtrage de questions
+ingestion/      Chargement, découpe, embeddings, indexation
+llm/            Couche d'accès unifiée aux modèles (Groq, Ollama...)
+logs/           Journaux d'exécution
+notebooks/      Exploration
+retrieval/      Recherche dense, hybride, reranking
+scripts/        Initialisation, import/export, maintenance
+skills/         Profils, recommandations, ontologie
+tests/          Tests de régression et scripts de validation
+volumes/        Volumes Docker persistants
+archive/        Historique : paquets, patchs, sauvegardes
 ```
+
+Détail complet dans [`STRUCTURE.md`](STRUCTURE.md).
 
 ---
 

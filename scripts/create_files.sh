@@ -17,12 +17,16 @@ mkdir -p \
   skills \
   db \
   api \
-  frontend \
+  auth \
+  dashboard \
   core \
   evaluation/results \
   scripts \
+  tests \
+  logs \
   data/raw \
   data/processed \
+  data/forms \
   data/reference/exam_guides \
   data/reference/sample_questions \
   notebooks \
@@ -47,7 +51,7 @@ declare -A FUTURE=(
   ["db/models.py"]="Phase 6 — modèles SQLAlchemy"
   ["db/session.py"]="Phase 6 — session PostgreSQL"
   ["api/main.py"]="Phase 6 — endpoints FastAPI"
-  ["frontend/app.py"]="Phase 6 — dashboard Streamlit"
+  ["dashboard/app.py"]="Phase 6 — dashboard Streamlit"
 )
 for f in "${!FUTURE[@]}"; do
   if [[ ! -f "$f" ]]; then
