@@ -281,7 +281,7 @@ function Landing({ dark, toggleDark, onLogin, onSignup }) {
     <div className="landing">
       <header className="nav">
         <div className="nav-brand">
-          <span className="logo-mark brand-img"><img src="/evasmart-logo.png" alt="EvaSmart" /></span>
+          <span className="logo-mark brand-img"><img src="/favicon.png" alt="EvaSmart" /></span>
           <div>
             <strong>EvaSmart</strong>
             <span>Évaluation intelligente</span>
@@ -3024,6 +3024,52 @@ const NAV = {
 function Workspace({ user, dark, toggleDark, onSignOut }) {
   const keys = NAV[user.role] || ["profil"];
   const [route, setRoute] = useState(keys[0]);
+
+  // Photo de profil locale, propre à chaque compte.
+  // Elle est conservée dans ce navigateur sans modifier le backend.
+  const profilePhotoKey = `evasmart_profile_photo_${user.email || user.name}`;
+
+  const [profilePhoto, setProfilePhoto] = useState(() => {
+    try {
+      return localStorage.getItem(profilePhotoKey) || null;
+    } catch {
+      return null;
+    }
+  });
+
+  const handleProfilePhoto = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+    if (!allowedTypes.includes(file.type)) {
+      window.alert("Format non pris en charge. Utilisez JPG, PNG ou WEBP.");
+      event.target.value = "";
+      return;
+    }
+
+    // Limite prudente pour le stockage local du navigateur.
+    if (file.size > 1024 * 1024) {
+      window.alert("La photo ne doit pas dépasser 1 Mo.");
+      event.target.value = "";
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const dataUrl = String(reader.result || "");
+        localStorage.setItem(profilePhotoKey, dataUrl);
+        setProfilePhoto(dataUrl);
+      } catch {
+        window.alert("Impossible d'enregistrer cette photo dans le navigateur.");
+      } finally {
+        event.target.value = "";
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   const meta = ROLE_META[user.role];
   const Ico = meta.icon;
   const Current = ROUTES[route].view;
@@ -3067,7 +3113,71 @@ function Workspace({ user, dark, toggleDark, onSignOut }) {
           </button>
         </div>
         <div className="dash-who">
-          <span className={`demo-av tint-${meta.tint}`}><Ico size={15} strokeWidth={2.2} /></span>
+          <label
+            title="Cliquer pour modifier la photo de profil"
+            style={{
+              position: "relative",
+              width: 48,
+              height: 48,
+              flexShrink: 0,
+              cursor: "pointer",
+              display: "block",
+            }}
+          >
+            {profilePhoto ? (
+              <img
+                src={profilePhoto}
+                alt={`Photo de ${user.name}`}
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 14,
+                  objectFit: "cover",
+                  display: "block",
+                  border: "2px solid var(--panel)",
+                  boxShadow: "0 3px 10px rgba(0,0,0,.12)",
+                }}
+              />
+            ) : (
+              <span
+                className={`demo-av tint-${meta.tint}`}
+                style={{ width: 48, height: 48, borderRadius: 14 }}
+              >
+                <Ico size={18} strokeWidth={2.2} />
+              </span>
+            )}
+
+            <span
+              aria-hidden="true"
+              style={{
+                position: "absolute",
+                right: -3,
+                bottom: -3,
+                width: 19,
+                height: 19,
+                borderRadius: "50%",
+                display: "grid",
+                placeItems: "center",
+                background: "#6366F1",
+                color: "#fff",
+                border: "2px solid var(--panel)",
+                boxShadow: "0 2px 6px rgba(0,0,0,.18)",
+                fontSize: 14,
+                fontWeight: 700,
+                lineHeight: 1,
+              }}
+            >
+              +
+            </span>
+
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={handleProfilePhoto}
+              style={{ display: "none" }}
+            />
+          </label>
+
           <div><strong>{user.name}</strong><span>{meta.label}</span></div>
         </div>
         <button className="dnav quiet" onClick={onSignOut}><LogOut size={15} strokeWidth={2.1} />Se déconnecter</button>

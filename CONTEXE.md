@@ -1,4 +1,4 @@
-# CLAUDE.md — contexte projet
+#  — contexte projet
 
 ## Projet
 
