@@ -1,8 +1,8 @@
 # ============================================================
-#  skill-intelligence / EvaSmart — .gitignore
+# EvaSmart — fichiers exclus de Git
 # ============================================================
 
-# --- Python ---
+# Python
 .venv/
 venv/
 __pycache__/
@@ -11,49 +11,58 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
+.ipynb_checkpoints/
 
-# --- Secrets & configuration locale ---
+# Secrets et configuration locale
 .env
-.env.local
+.env.*
+!.env.example
+!.env.*.example
 *.pem
 *.key
+*.p12
+*.pfx
+docker-compose.override.yml
 
-# --- Node / frontend ---
+# Frontend
 node_modules/
-frontend-web/node_modules/
-frontend-web/dist/
-frontend-web/.vite/
+dist/
+build/
+.vite/
 *.local
 
-# --- Données & volumes runtime (lourds, non versionnés) ---
-data/
-volumes/
+# Données privées et volumes
+data/*
 !data/.gitkeep
-*.pkl
-*.jsonl
+volumes/
+uploads/
 chroma/
 qdrant/
+*.pkl
+*.jsonl
+*.db
+*.sqlite
+*.sqlite3
 
-# --- Sorties d'exécution ---
+# Résultats d’exécution
 logs/
 *.log
 evaluation/results/
 evaluation/human_ratings/
 
-# --- Archives & sauvegardes ---
+# Archives et sauvegardes
 archive/
+backups/
+dumps/
 *.bak
 *.bak[0-9]*
 *.orig
-*~
 *.zip
+*~
 
-# --- Notebooks ---
-.ipynb_checkpoints/
-
-# --- OS / éditeurs ---
+# Système et éditeurs
 .DS_Store
 Thumbs.db
 .idea/
-.vscode/
+.vscode/*
 !.vscode/settings.json
